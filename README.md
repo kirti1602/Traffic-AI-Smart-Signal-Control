@@ -18,3 +18,45 @@ This project uses Reinforcement Learning (PPO) to dynamically control traffic si
 
 ## Architecture
 Frontend (Dashboard) → Backend (FastAPI) → SUMO → RL Model
+
+## 🌐 Live Demo
+
+Backend API:
+https://nikita-recidivous-engagedly.ngrok-free.dev/state
+
+## Architecture
+
+Dashboard (HTML + JS)
+        ↓
+FastAPI Backend (WebSocket)
+        ↓
+SUMO Simulation (Traffic)
+        ↓
+PPO Model (Decision Making)
+
+Dashboard:
+Open `dashboard.html` locally or hosted version.
+
+## How to Run
+
+### 1. Install dependencies
+```bash
+pip install -r requirements.txt
+
+## 2. Start backend
+python backend1.py
+
+## 3. Run ngrok
+Run ngrok
+
+OPen dashboard in browser
+
+---
+
+# 🟢 4. ADD TEAM SECTION
+
+```markdown
+## 👥 Team
+- Kirti Kashyap — AI + Backend
+- Teammate 2 — Simulation
+- Teammate 3 — Frontend
