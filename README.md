@@ -37,6 +37,11 @@ PPO Model (Decision Making)
 Dashboard:
 Open `dashboard.html` locally or hosted version.
 
+## 👥 Team
+- Ishhan Goyal — AI + Backend
+- Kirti Kashyap — Backend
+- Ishika Bisht — Frontend
+
 ## How to Run
 
 ### 1. Install dependencies
@@ -52,11 +57,3 @@ Run ngrok
 OPen dashboard in browser
 
 ---
-
-# 🟢 4. ADD TEAM SECTION
-
-```markdown
-## 👥 Team
-- Kirti Kashyap — AI + Backend
-- Teammate 2 — Simulation
-- Teammate 3 — Frontend
