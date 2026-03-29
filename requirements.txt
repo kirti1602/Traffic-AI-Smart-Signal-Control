@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+stable-baselines3
+gymnasium
+numpy
+sumo-rl
+traci
