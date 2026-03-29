@@ -1,0 +1,56 @@
+{
+  "morning_peak": {
+    "hours": [
+      8,
+      9,
+      10
+    ],
+    "prob_main": 0.28,
+    "prob_cross": 0.18
+  },
+  "afternoon": {
+    "hours": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16
+    ],
+    "prob_main": 0.15,
+    "prob_cross": 0.1
+  },
+  "evening_peak": {
+    "hours": [
+      17,
+      18,
+      19,
+      20
+    ],
+    "prob_main": 0.32,
+    "prob_cross": 0.22
+  },
+  "night": {
+    "hours": [
+      21,
+      22,
+      23
+    ],
+    "prob_main": 0.04,
+    "prob_cross": 0.03
+  },
+  "early_morning": {
+    "hours": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "prob_main": 0.03,
+    "prob_cross": 0.02
+  }
+}

@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Traffic AI — Meerut Live</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:system-ui,sans-serif; background:#0f1117; color:#e0e0e0; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+
+.topbar { display:flex; align-items:center; justify-content:space-between; padding:10px 20px; background:#1a1d27; border-bottom:1px solid #2a2d3a; flex-shrink:0; }
+.topbar-left h1 { font-size:16px; font-weight:600; }
+.topbar-left p  { font-size:11px; color:#555; margin-top:2px; }
+.controls { display:flex; gap:8px; align-items:center; }
+button { padding:6px 18px; border:none; border-radius:6px; font-size:13px; cursor:pointer; font-weight:600; }
+#btnStart { background:#00cc88; color:#000; }
+#btnStop  { background:#ff4444; color:#fff; }
+.wsdot { width:8px; height:8px; border-radius:50%; background:#444; display:inline-block; margin-right:5px; transition:all 0.3s; }
+.wsdot.live { background:#00cc88; box-shadow:0 0 8px #00cc88; }
+.wslabel { font-size:11px; color:#555; }
+
+.alertbar { padding:7px 20px; font-size:13px; font-weight:500; flex-shrink:0; transition:all 0.3s; }
+.alertbar.ok  { background:#061a10; color:#00cc88; border-bottom:1px solid #0a2e18; }
+.alertbar.amb { background:#1f0505; color:#ff6666; border-bottom:1px solid #3a0a0a; animation:pulse 0.8s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+
+.metricstrip { display:flex; border-bottom:1px solid #2a2d3a; flex-shrink:0; }
+.met { flex:1; padding:8px 16px; border-right:1px solid #2a2d3a; }
+.met:last-child { border-right:none; }
+.met .lbl { font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.4px; }
+.met .val { font-size:20px; font-weight:700; margin-top:2px; }
+.blue  { color:#4488ff; }
+.green { color:#00cc88; }
+.amber { color:#ffaa00; }
+.red   { color:#ff4444; }
+.white { color:#ffffff; }
+
+.body { display:flex; flex:1; overflow:hidden; }
+.mapleft { flex:1; position:relative; }
+#map { width:100%; height:100%; }
+
+.tl-widget {
+  position:absolute; top:10px; right:10px; z-index:1000;
+  background:rgba(15,17,23,0.95); border:1px solid #2a2d3a;
+  border-radius:12px; padding:12px 16px; text-align:center; min-width:130px;
+}
+.tl-widget .tl-title { font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
+.tl-housing { background:#111; border-radius:8px; padding:8px; display:inline-flex; flex-direction:column; gap:6px; border:2px solid #333; }
+.tl-bulb { width:28px; height:28px; border-radius:50%; background:#1a1a1a; border:2px solid #333; transition:all 0.3s; }
+.tl-bulb.on-red    { background:#ff4444; box-shadow:0 0 14px #ff4444, 0 0 28px #ff444455; border-color:#ff6666; }
+.tl-bulb.on-yellow { background:#ffaa00; box-shadow:0 0 14px #ffaa00, 0 0 28px #ffaa0055; border-color:#ffcc44; }
+.tl-bulb.on-green  { background:#00cc88; box-shadow:0 0 14px #00cc88, 0 0 28px #00cc8855; border-color:#00ffaa; }
+.tl-label { font-size:11px; color:#aaa; margin-top:8px; font-weight:500; }
+.tl-mode  { font-size:10px; margin-top:4px; padding:3px 8px; border-radius:4px; font-weight:700; }
+.tl-mode.normal    { background:#0a2e18; color:#00cc88; }
+.tl-mode.emergency { background:#2e0505; color:#ff6666; animation:pulse 0.8s infinite; }
+
+.map-legend {
+  position:absolute; bottom:30px; left:10px; z-index:1000;
+  background:rgba(15,17,23,0.92); border:1px solid #2a2d3a;
+  border-radius:8px; padding:10px 14px; font-size:11px;
+}
+.map-legend h4 { color:#666; margin-bottom:8px; font-size:10px; text-transform:uppercase; letter-spacing:0.4px; }
+.leg-item { display:flex; align-items:center; gap:8px; margin-bottom:5px; color:#bbb; }
+.leg-dot  { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+.leg-ring { width:14px; height:14px; border-radius:50%; border:2px dashed #4488ff55; background:rgba(68,136,255,0.08); flex-shrink:0; }
+.leg-ring-amb { width:14px; height:14px; border-radius:50%; border:2px dashed #ff444455; background:rgba(255,68,68,0.08); flex-shrink:0; }
+
+.maptag { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); z-index:999; background:rgba(0,0,0,0.7); padding:4px 10px; border-radius:6px; font-size:10px; color:#666; pointer-events:none; }
+
+.rightpanel { width:340px; flex-shrink:0; border-left:1px solid #2a2d3a; display:flex; flex-direction:column; overflow-y:auto; }
+.sec { padding:12px 14px; border-bottom:1px solid #1e2030; }
+.sec h3 { font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+.chart-wrap { height:90px; position:relative; }
+.logentry { font-size:11px; color:#ff8888; padding:3px 0; border-bottom:1px solid #181820; font-family:monospace; line-height:1.5; }
+.logempty { font-size:11px; color:#333; font-style:italic; }
+.irow { display:flex; justify-content:space-between; font-size:11px; padding:4px 0; border-bottom:1px solid #181820; }
+.irow .k { color:#555; }
+.irow .v { color:#ccc; font-weight:500; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>Traffic AI — Meerut Live Simulation</h1>
+    <p>PPO Reinforcement Learning · Emergency Vehicle Priority · Real OpenStreetMap Data</p>
+  </div>
+  <div class="controls">
+    <span class="wsdot" id="wsDot"></span>
+    <span class="wslabel" id="wsLbl">Connecting...</span>
+    &nbsp;
+    <button id="btnStart" onclick="startSim()">▶ Start</button>
+    <button id="btnStop"  onclick="stopSim()">⏹ Stop</button>
+  </div>
+</div>
+
+<div class="alertbar ok" id="alertBar"> Normal AI control — no emergency vehicles detected</div>
+
+<div class="metricstrip">
+  <div class="met"><div class="lbl">Step</div><div class="val blue" id="mStep">0</div></div>
+  <div class="met"><div class="lbl">Vehicles</div><div class="val white" id="mVeh">0</div></div>
+  <div class="met"><div class="lbl">Live Reward</div><div class="val green" id="mRew">0.0000</div></div>
+  <div class="met"><div class="lbl">Total Reward</div><div class="val amber" id="mTot">0.00</div></div>
+  <div class="met"><div class="lbl">Avg Reward</div><div class="val white" id="mAvg">—</div></div>
+  <div class="met"><div class="lbl">Ambulances</div><div class="val red" id="mAmb">0</div></div>
+</div>
+
+<div class="body">
+  <div class="mapleft">
+    <div id="map"></div>
+
+    <!-- Traffic light widget -->
+    <div class="tl-widget">
+      <div class="tl-title">Intersection Signal</div>
+      <div style="display:flex;gap:16px;align-items:center;justify-content:center">
+        <div>
+          <div style="font-size:9px;color:#666;margin-bottom:4px;text-align:center">N↕S</div>
+          <div class="tl-housing">
+            <div class="tl-bulb" id="ns-red"></div>
+            <div class="tl-bulb" id="ns-yellow"></div>
+            <div class="tl-bulb" id="ns-green"></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:9px;color:#666;margin-bottom:4px;text-align:center">E↔W</div>
+          <div class="tl-housing">
+            <div class="tl-bulb" id="ew-red"></div>
+            <div class="tl-bulb" id="ew-yellow"></div>
+            <div class="tl-bulb" id="ew-green"></div>
+          </div>
+        </div>
+      </div>
+      <div class="tl-label" id="tlLabel">—</div>
+      <div class="tl-mode normal" id="tlMode">AI CONTROL</div>
+    </div>
+
+    <!-- Legend -->
+    <div class="map-legend">
+      <h4>Map Guide</h4>
+      <div class="leg-item"><div class="leg-dot" style="background:#00cc88"></div>Moving vehicle (&gt;5 m/s)</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#ffaa00"></div>Slow / waiting</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#ff4444"></div>🚨 Ambulance</div>
+      <div class="leg-item"><div class="leg-ring"></div>AI control zone</div>
+      <div class="leg-item"><div class="leg-ring-amb"></div>Emergency corridor</div>
+      <div class="leg-item" style="color:#555;font-size:10px;margin-top:2px">── Trail = direction of travel</div>
+      <div class="leg-item" style="color:#555;font-size:10px">Click any dot for details</div>
+    </div>
+
+    <div class="maptag" id="mapTag"> Meerut, Uttar Pradesh</div>
+  </div>
+
+  <div class="rightpanel">
+    <div class="sec">
+      <h3> Live Reward</h3>
+      <div class="chart-wrap"><canvas id="rewChart"></canvas></div>
+    </div>
+    <div class="sec">
+      <h3> Vehicle Count</h3>
+      <div class="chart-wrap"><canvas id="vehChart"></canvas></div>
+    </div>
+    <div class="sec">
+      <h3> Ambulance Log</h3>
+      <div id="ambLog"><div class="logempty">No events yet...</div></div>
+    </div>
+    <div class="sec">
+      <h3> System Info</h3>
+      <div class="irow"><span class="k">Model</span><span class="v">PPO · MlpPolicy</span></div>
+      <div class="irow"><span class="k">Trained steps</span><span class="v">10,000</span></div>
+      <div class="irow"><span class="k">Reward improvement</span><span class="v">~75%</span></div>
+      <div class="irow"><span class="k">Explained variance</span><span class="v">0.74</span></div>
+      <div class="irow"><span class="k">Ambulance interval</span><span class="v">every 200 steps</span></div>
+      <div class="irow"><span class="k">Road data</span><span class="v">OpenStreetMap · Meerut</span></div>
+      <div class="irow"><span class="k">Traffic calibration</span><span class="v">IRC SP-41 / HCM India</span></div>
+      <div class="irow"><span class="k">Status</span><span class="v" id="simStat">🔴 Stopped</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "https://nikita-recidivous-engagedly.ngrok-free.dev";
+const WS  = "wss://nikita-recidivous-engagedly.ngrok-free.dev/ws";
+
+// ── Map ───────────────────────────────────────────────────
+let mapInited = false, leafMap;
+let markers      = {};   // vehicle circle markers
+let trailLines   = {};   // vehicle trail polylines
+let trailHistory = {};   // lat/lng history per vehicle
+let aiZoneNormal = null; // blue AI zone circle
+let aiZoneEmerg  = null; // red emergency corridor circle
+let intDot       = null;
+
+const TRAIL_LEN  = 8;    // how many past positions to show
+const AI_ZONE_M  = 80;   // radius in metres of AI control zone
+
+function initMap(lat, lng) {
+  if (mapInited) return;
+  mapInited = true;
+
+  leafMap = L.map("map", { zoomControl:true }).setView([lat, lng], 17);
+
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    attribution:"© OpenStreetMap © CARTO", maxZoom:19
+  }).addTo(leafMap);
+
+  // AI control zone — blue dashed circle
+  aiZoneNormal = L.circle([lat, lng], {
+    radius: AI_ZONE_M,
+    color: "#4488ff", fillColor: "#4488ff",
+    fillOpacity: 0.06, weight: 1.5,
+    dashArray: "6 5", opacity: 0.5
+  }).addTo(leafMap).bindTooltip("AI-controlled zone", {direction:"top"});
+
+  // Emergency corridor — red circle, hidden by default
+  aiZoneEmerg = L.circle([lat, lng], {
+    radius: AI_ZONE_M * 1.3,
+    color: "#ff4444", fillColor: "#ff4444",
+    fillOpacity: 0.04, weight: 1.5,
+    dashArray: "4 4", opacity: 0
+  }).addTo(leafMap);
+
+  // Intersection center dot
+  intDot = L.circleMarker([lat, lng], {
+    radius: 6, color:"#ffaa00", fillColor:"#ffaa00",
+    fillOpacity:1, weight:0
+  }).addTo(leafMap).bindTooltip("AI intersection · Meerut", {direction:"top"});
+
+  document.getElementById("mapTag").textContent =
+    `🗺️ Meerut, UP · ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+}
+
+// Toggle zone appearance based on emergency state
+function updateZones(ambActive) {
+  if (!aiZoneNormal) return;
+  if (ambActive) {
+    aiZoneNormal.setStyle({ color:"#ff4444", fillColor:"#ff4444", fillOpacity:0.05, opacity:0.3 });
+    aiZoneEmerg.setStyle({ opacity:0.6 });
+  } else {
+    aiZoneNormal.setStyle({ color:"#4488ff", fillColor:"#4488ff", fillOpacity:0.06, opacity:0.5 });
+    aiZoneEmerg.setStyle({ opacity:0 });
+  }
+}
+
+// Draw arrow head to show direction
+function arrowHead(p1, p2, color) {
+  const lat1 = p1[0], lng1 = p1[1];
+  const lat2 = p2[0], lng2 = p2[1];
+  const angle = Math.atan2(lat2 - lat1, lng2 - lng1);
+  const len   = 0.00003;
+  const spread = Math.PI / 7;
+
+  const tip = [lat2, lng2];
+  const left  = [lat2 - len * Math.sin(angle + spread), lng2 - len * Math.cos(angle + spread) * 0.6];
+  const right = [lat2 - len * Math.sin(angle - spread), lng2 - len * Math.cos(angle - spread) * 0.6];
+
+  return L.polygon([tip, left, right], {
+    color: color, fillColor: color,
+    fillOpacity: 0.8, weight: 0.5, opacity: 0.8
+  });
+}
+
+// Per-vehicle arrow markers
+let arrowMarkers = {};
+
+function getVehicleIcon(v) {
+  // Calculate rotation from trail
+  let rotation = 0;
+  if (trailHistory[v.id] && trailHistory[v.id].length >= 2) {
+    const pts = trailHistory[v.id];
+    const p1  = pts[pts.length - 2];
+    const p2  = pts[pts.length - 1];
+    const dy  = p2[0] - p1[0];
+    const dx  = p2[1] - p1[1];
+    rotation  = Math.atan2(dx, dy) * (180 / Math.PI);
+  }
+
+  const color  = v.is_ambulance ? "#ff4444"
+               : v.speed < 5    ? "#ffaa00"
+               :                  "#00cc88";
+
+  const size   = v.is_ambulance ? 28 : 22;
+  const shadow = v.is_ambulance
+    ? `drop-shadow(0 0 6px #ff4444)`
+    : `drop-shadow(0 0 3px ${color}88)`;
+
+  // SVG car shape pointing upward, rotated by direction
+  const svg = v.is_ambulance ? `
+    <svg width="${size}" height="${size}" viewBox="0 0 24 24"
+         style="transform:rotate(${rotation}deg);filter:${shadow}"
+         xmlns="http://www.w3.org/2000/svg">
+      <!-- Ambulance body -->
+      <rect x="4" y="3" width="16" height="18" rx="3"
+            fill="${color}" stroke="white" stroke-width="1"/>
+      <!-- Cross symbol -->
+      <rect x="10.5" y="6" width="3" height="8" rx="1" fill="white"/>
+      <rect x="8"    y="8.5" width="8" height="3" rx="1" fill="white"/>
+      <!-- Lights -->
+      <rect x="5"  y="3" width="4" height="2" rx="1" fill="#ff0000" opacity="0.9"/>
+      <rect x="15" y="3" width="4" height="2" rx="1" fill="#0044ff" opacity="0.9"/>
+      <!-- Wheels -->
+      <rect x="3"  y="7"  width="2" height="4" rx="1" fill="#222"/>
+      <rect x="19" y="7"  width="2" height="4" rx="1" fill="#222"/>
+      <rect x="3"  y="14" width="2" height="4" rx="1" fill="#222"/>
+      <rect x="19" y="14" width="2" height="4" rx="1" fill="#222"/>
+    </svg>
+  ` : `
+    <svg width="${size}" height="${size}" viewBox="0 0 24 24"
+         style="transform:rotate(${rotation}deg);filter:${shadow}"
+         xmlns="http://www.w3.org/2000/svg">
+      <!-- Car body -->
+      <rect x="5" y="6" width="14" height="13" rx="3"
+            fill="${color}" stroke="white" stroke-width="0.8" opacity="0.95"/>
+      <!-- Roof -->
+      <rect x="7" y="3" width="10" height="6" rx="2" fill="${color}" opacity="0.85"/>
+      <!-- Windshield -->
+      <rect x="8" y="4" width="8" height="4" rx="1" fill="white" opacity="0.35"/>
+      <!-- Rear window -->
+      <rect x="8" y="13" width="8" height="3" rx="1" fill="white" opacity="0.2"/>
+      <!-- Wheels -->
+      <rect x="3"  y="7"  width="3" height="4" rx="1.5" fill="#111"/>
+      <rect x="18" y="7"  width="3" height="4" rx="1.5" fill="#111"/>
+      <rect x="3"  y="14" width="3" height="4" rx="1.5" fill="#111"/>
+      <rect x="18" y="14" width="3" height="4" rx="1.5" fill="#111"/>
+      <!-- Headlights -->
+      <rect x="6"  y="18" width="4" height="1.5" rx="0.5" fill="white" opacity="0.7"/>
+      <rect x="14" y="18" width="4" height="1.5" rx="0.5" fill="white" opacity="0.7"/>
+    </svg>
+  `;
+
+  return L.divIcon({
+    html:        svg,
+    className:   "",
+    iconSize:    [size, size],
+    iconAnchor:  [size/2, size/2]
+  });
+}
+
+function updateMap(positions, ambActive) {
+  const seen = new Set();
+
+  positions.forEach(v => {
+    seen.add(v.id);
+
+    // Update trail history
+    if (!trailHistory[v.id]) trailHistory[v.id] = [];
+    trailHistory[v.id].push([v.lat, v.lng]);
+    if (trailHistory[v.id].length > TRAIL_LEN) trailHistory[v.id].shift();
+
+    // Draw fading trail
+    if (trailHistory[v.id].length > 1) {
+      if (trailLines[v.id]) leafMap.removeLayer(trailLines[v.id]);
+      const pts  = trailHistory[v.id];
+      const col  = v.is_ambulance ? "#ff4444"
+                 : v.speed < 5    ? "#ffaa00" : "#00cc88";
+      const segs = [];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const frac = (i + 1) / pts.length;
+        segs.push(L.polyline([pts[i], pts[i+1]], {
+          color:   col,
+          weight:  v.is_ambulance ? 3 : 2,
+          opacity: 0.15 + frac * 0.5,
+          dashArray: v.is_ambulance ? null : "4 4"
+        }));
+      }
+      trailLines[v.id] = L.layerGroup(segs).addTo(leafMap);
+    }
+
+    // Popup
+    const popup = v.is_ambulance
+      ? `<b style="color:#cc0000"> AMBULANCE</b><br>
+         ID: ${v.id}<br>
+         Speed: <b>${v.speed} m/s</b><br>
+         <span style="color:#cc0000;font-size:11px">Signal FORCED GREEN</span>`
+      : `<b>🚗 ${v.id}</b><br>
+         Speed: <b>${v.speed} m/s</b><br>
+         <span style="font-size:11px;color:${v.speed<5?'#cc6600':'#006600'}">
+           ${v.speed < 5 ? '⏸ Waiting at signal' : '▶ Moving freely'}
+         </span>`;
+
+    const icon = getVehicleIcon(v);
+
+    if (markers[v.id]) {
+      markers[v.id].setLatLng([v.lat, v.lng]);
+      markers[v.id].setIcon(icon);
+    } else {
+      markers[v.id] = L.marker([v.lat, v.lng], { icon })
+        .addTo(leafMap)
+        .bindPopup(popup);
+    }
+  });
+
+  // Remove departed vehicles
+  Object.keys(markers).forEach(id => {
+    if (!seen.has(id)) {
+      leafMap.removeLayer(markers[id]);
+      delete markers[id];
+      if (trailLines[id]) {
+        leafMap.removeLayer(trailLines[id]);
+        delete trailLines[id];
+      }
+      delete trailHistory[id];
+    }
+  });
+
+  updateZones(ambActive);
+}
+
+// ── Traffic light ─────────────────────────────────────────
+function updateTrafficLight(phase, phaseName, ambActive) {
+  ["ns-red","ns-yellow","ns-green","ew-red","ew-yellow","ew-green"]
+    .forEach(id => document.getElementById(id).className = "tl-bulb");
+
+  if (ambActive) {
+    document.getElementById("ns-green").className = "tl-bulb on-green";
+    document.getElementById("ew-red").className   = "tl-bulb on-red";
+    document.getElementById("tlLabel").textContent = "EMERGENCY";
+    document.getElementById("tlMode").className    = "tl-mode emergency";
+    document.getElementById("tlMode").textContent  = "PRIORITY OVERRIDE";
+  } else {
+    switch(phase) {
+      case 0:
+        document.getElementById("ns-green").className = "tl-bulb on-green";
+        document.getElementById("ew-red").className   = "tl-bulb on-red";   break;
+      case 1:
+        document.getElementById("ns-yellow").className = "tl-bulb on-yellow";
+        document.getElementById("ew-red").className    = "tl-bulb on-red";  break;
+      case 2:
+        document.getElementById("ns-red").className   = "tl-bulb on-red";
+        document.getElementById("ew-green").className = "tl-bulb on-green"; break;
+      case 3:
+        document.getElementById("ns-red").className    = "tl-bulb on-red";
+        document.getElementById("ew-yellow").className = "tl-bulb on-yellow"; break;
+    }
+    document.getElementById("tlLabel").textContent = phaseName;
+    document.getElementById("tlMode").className    = "tl-mode normal";
+    document.getElementById("tlMode").textContent  = "AI CONTROL";
+  }
+}
+
+// ── Charts ────────────────────────────────────────────────
+function mkChart(id, color) {
+  return new Chart(document.getElementById(id).getContext("2d"), {
+    type:"line",
+    data:{ labels:[], datasets:[{
+      data:[], borderColor:color, backgroundColor:color+"22",
+      borderWidth:1.5, pointRadius:0, fill:true, tension:0.35
+    }]},
+    options:{
+      animation:false, responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ display:false },
+        y:{ grid:{ color:"#1e2030" }, ticks:{ color:"#444", font:{ size:10 } } }
+      }
+    }
+  });
+}
+
+const rewChart = mkChart("rewChart", "#00cc88");
+const vehChart = mkChart("vehChart", "#4488ff");
+
+function pushChart(chart, data) {
+  chart.data.labels = data.map((_,i)=>i);
+  chart.data.datasets[0].data = data;
+  chart.update("none");
+}
+
+// ── Main update ───────────────────────────────────────────
+function updateUI(s) {
+  if (!mapInited && s.intersection_lat) initMap(s.intersection_lat, s.intersection_lng);
+
+  document.getElementById("mStep").textContent = s.step.toLocaleString();
+  document.getElementById("mVeh").textContent  = s.vehicles;
+  document.getElementById("mRew").textContent  = s.reward.toFixed(4);
+  document.getElementById("mTot").textContent  = s.total_reward.toFixed(2);
+  document.getElementById("simStat").textContent = s.running ? "🟢 Running" : "🔴 Stopped";
+
+  if (s.reward_history.length > 0) {
+    const avg = s.reward_history.reduce((a,b)=>a+b,0)/s.reward_history.length;
+    document.getElementById("mAvg").textContent = avg.toFixed(4);
+  }
+
+  const ambs = s.vehicle_positions
+    ? s.vehicle_positions.filter(v=>v.is_ambulance).length : 0;
+  document.getElementById("mAmb").textContent = ambs;
+
+  const ab = document.getElementById("alertBar");
+  if (s.ambulance_active) {
+    ab.className = "alertbar amb";
+    ab.innerHTML = `🚨 EMERGENCY VEHICLE ACTIVE — Road: <b>${s.ambulance_road}</b> | Speed: <b>${s.ambulance_speed} m/s</b> | Signal: <b>FORCED GREEN ✅</b>`;
+  } else {
+    ab.className = "alertbar ok";
+    ab.innerHTML = "Normal AI control — no emergency vehicles detected";
+  }
+
+  updateTrafficLight(s.signal_phase, s.phase_name, s.ambulance_active);
+
+  if (s.reward_history.length)  pushChart(rewChart, s.reward_history);
+  if (s.vehicle_history.length) pushChart(vehChart, s.vehicle_history);
+
+  if (mapInited && s.vehicle_positions)
+    updateMap(s.vehicle_positions, s.ambulance_active);
+
+  const log = document.getElementById("ambLog");
+  if (s.ambulance_log && s.ambulance_log.length)
+    log.innerHTML = s.ambulance_log
+      .map(e=>`<div class="logentry">${e}</div>`).join("");
+}
+
+// ── WebSocket ─────────────────────────────────────────────
+function connect() {
+  const ws = new WebSocket(WS);
+  ws.onopen = () => {
+    document.getElementById("wsDot").className  = "wsdot live";
+    document.getElementById("wsLbl").textContent = "Live";
+  };
+  ws.onmessage = e => updateUI(JSON.parse(e.data));
+  ws.onclose = () => {
+    document.getElementById("wsDot").className  = "wsdot";
+    document.getElementById("wsLbl").textContent = "Reconnecting...";
+    setTimeout(connect, 2000);
+  };
+}
+
+async function startSim() { await fetch(`${API}/start`, {method:"POST"}); }
+async function stopSim()  { await fetch(`${API}/stop`,  {method:"POST"}); }
+
+connect();
+</script>
+</body>
+</html>
