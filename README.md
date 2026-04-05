@@ -19,7 +19,7 @@ This project uses Reinforcement Learning (PPO) to dynamically control traffic si
 ## Architecture
 Frontend (Dashboard) → Backend (FastAPI) → SUMO → RL Model
 
-## 🌐 Live Demo
+## Live Demo
 
 Backend API:
 https://nikita-recidivous-engagedly.ngrok-free.dev/state
@@ -37,10 +37,10 @@ PPO Model (Decision Making)
 Dashboard:
 Open `dashboard.html` locally or hosted version.
 
-## 👥 Team
+## Team
 - Ishhan Goyal — AI + Backend
 - Kirti Kashyap — Backend
-- Ishika Bisht — Frontend
+- Ishika Bisht — Frontednd 
 
 ## How to Run
 
